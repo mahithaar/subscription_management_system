@@ -259,7 +259,7 @@ export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
                         <div className="bg-[#111217] text-white p-3 rounded-xl shadow-xl text-xs border border-slate-700">
                           <p className="font-semibold text-slate-300">{label}</p>
                           <p className="text-amber-400 font-bold mt-1">
-                            Revenue: ₹{payload[0].value.toLocaleString('en-IN')}
+                            {chartTab === 'revenue' ? 'Recurring Revenue' : 'Projected Target'}: ₹{payload[0].value.toLocaleString('en-IN')}
                           </p>
                         </div>
                       );
@@ -270,10 +270,10 @@ export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
                 <Area
                   type="monotone"
                   dataKey={chartTab === 'revenue' ? 'revenue' : 'target'}
-                  stroke="#f97316"
+                  stroke={chartTab === 'revenue' ? '#f97316' : '#facc15'}
                   strokeWidth={3}
                   fillOpacity={1}
-                  fill="url(#revenueGradient)"
+                  fill={chartTab === 'revenue' ? 'url(#revenueGradient)' : 'url(#targetGradient)'}
                 />
               </AreaChart>
             </ResponsiveContainer>

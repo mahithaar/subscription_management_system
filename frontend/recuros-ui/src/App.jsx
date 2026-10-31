@@ -112,6 +112,7 @@ export default function App() {
           onResetTime={handleResetTime}
           onRunBilling={handleRunBilling}
           onActionClick={handleTopAction}
+          onNavigate={setActiveTab}
         />
 
         {/* PROOF PANEL BANNER FOR JUDGES */}

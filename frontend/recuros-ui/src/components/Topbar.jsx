@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, Bell, Clock, Play, RotateCcw, ChevronDown, 
   CheckCircle2, ShieldCheck, User, LogOut, Settings as SettingsIcon, 
-  FileSpreadsheet, X, CreditCard, Sparkles
+  FileSpreadsheet, X, CreditCard, Sparkles, Layers, FileText, ArrowRight
 } from 'lucide-react';
+import { mockCustomers, mockInvoices, mockSubscriptions, mockPlans } from '../data/mockData';
 
 export default function Topbar({ 
   activeTab = 'dashboard', 
@@ -12,14 +13,20 @@ export default function Topbar({
   onAdvanceTime, 
   onResetTime, 
   onRunBilling,
-  onActionClick
+  onActionClick,
+  onNavigate
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [unreadCount, setUnreadCount] = useState(3);
 
+  // Global Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -28,6 +35,9 @@ export default function Topbar({
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfile(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchFocused(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -83,18 +93,136 @@ export default function Topbar({
     }
   ];
 
+  // Perform multi-entity search
+  const q = searchQuery.trim().toLowerCase();
+  const matchedCustomers = q ? mockCustomers.filter(c => c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)).slice(0, 3) : [];
+  const matchedInvoices = q ? mockInvoices.filter(i => i.id.toLowerCase().includes(q) || i.customer.toLowerCase().includes(q) || i.plan.toLowerCase().includes(q)).slice(0, 3) : [];
+  const matchedSubs = q ? mockSubscriptions.filter(s => s.id.toLowerCase().includes(q) || s.customer.toLowerCase().includes(q) || s.plan.toLowerCase().includes(q)).slice(0, 3) : [];
+  const matchedPlans = q ? mockPlans.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)).slice(0, 2) : [];
+  const totalMatches = matchedCustomers.length + matchedInvoices.length + matchedSubs.length + matchedPlans.length;
+
+  const handleSelectResult = (tab) => {
+    if (onNavigate) onNavigate(tab);
+    setIsSearchFocused(false);
+    setSearchQuery('');
+  };
+
   return (
     <header className="h-20 bg-[#111217] border-b border-[#1e222d] px-8 flex items-center justify-between sticky top-0 z-30 text-white select-none">
-      {/* Search Input Bar */}
-      <div className="flex items-center gap-4 flex-1 max-w-md">
+      {/* Search Input Bar with Live Results Dropdown */}
+      <div className="flex items-center gap-4 flex-1 max-w-md relative" ref={searchRef}>
         <div className="relative w-full">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
             placeholder="Search plans, invoices, customers..."
-            className="w-full pl-10 pr-4 py-2 text-sm bg-[#16181e] border border-[#232733] rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-slate-200 placeholder-slate-500"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            className="w-full pl-10 pr-9 py-2 text-sm bg-[#16181e] border border-[#232733] rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all text-slate-200 placeholder-slate-500"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
+
+        {/* Search Results Dropdown */}
+        {isSearchFocused && searchQuery.trim() && (
+          <div className="absolute top-12 left-0 right-0 bg-[#16181e] border border-[#282d3d] rounded-2xl shadow-2xl p-3 z-50 animate-fadeIn max-h-96 overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800 text-[11px] text-slate-400">
+              <span>{totalMatches} results for "{searchQuery}"</span>
+              <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">Esc to close</span>
+            </div>
+
+            {totalMatches === 0 && (
+              <div className="py-6 text-center text-xs text-slate-500">
+                No matching customers, invoices, subscriptions, or plans found.
+              </div>
+            )}
+
+            {/* Customers Group */}
+            {matchedCustomers.length > 0 && (
+              <div className="py-2">
+                <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider px-2">Customers</span>
+                {matchedCustomers.map(c => (
+                  <div
+                    key={c.id}
+                    onClick={() => handleSelectResult('customers')}
+                    className="p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer flex items-center justify-between text-xs transition"
+                  >
+                    <div>
+                      <span className="font-semibold text-white">{c.name}</span>
+                      <span className="text-[11px] text-slate-400 ml-2">({c.company})</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-400">{c.spent}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Invoices Group */}
+            {matchedInvoices.length > 0 && (
+              <div className="py-2 border-t border-slate-800/60">
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider px-2">Invoices</span>
+                {matchedInvoices.map(i => (
+                  <div
+                    key={i.id}
+                    onClick={() => handleSelectResult('invoices')}
+                    className="p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer flex items-center justify-between text-xs transition"
+                  >
+                    <div>
+                      <span className="font-mono font-bold text-orange-400">{i.id}</span>
+                      <span className="text-[11px] text-slate-300 ml-2">{i.customer}</span>
+                    </div>
+                    <span className="font-bold text-white">{i.total}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Subscriptions Group */}
+            {matchedSubs.length > 0 && (
+              <div className="py-2 border-t border-slate-800/60">
+                <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider px-2">Subscriptions</span>
+                {matchedSubs.map(s => (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSelectResult('subscriptions')}
+                    className="p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer flex items-center justify-between text-xs transition"
+                  >
+                    <div>
+                      <span className="font-mono text-purple-300 font-bold">{s.id}</span>
+                      <span className="text-[11px] text-slate-300 ml-2">{s.customer}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">{s.plan}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Plans Group */}
+            {matchedPlans.length > 0 && (
+              <div className="py-2 border-t border-slate-800/60">
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider px-2">Plans</span>
+                {matchedPlans.map(p => (
+                  <div
+                    key={p.id}
+                    onClick={() => handleSelectResult('plans')}
+                    className="p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer flex items-center justify-between text-xs transition"
+                  >
+                    <span className="font-semibold text-white">{p.name}</span>
+                    <span className="font-bold text-emerald-400">{p.price}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right Controls */}
@@ -107,7 +235,7 @@ export default function Topbar({
           {onAdvanceTime && (
             <button 
               onClick={onAdvanceTime} 
-              className="ml-1.5 px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded text-[11px] font-semibold transition"
+              className="ml-1.5 px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded text-[11px] font-semibold transition cursor-pointer"
               title="Advance virtual clock by 30 days"
             >
               +30 Days
@@ -116,7 +244,7 @@ export default function Topbar({
           {onResetTime && (
             <button 
               onClick={onResetTime} 
-              className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition"
+              className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[11px] transition cursor-pointer"
               title="Reset to real time"
             >
               <RotateCcw className="w-3 h-3" />
@@ -161,7 +289,7 @@ export default function Topbar({
                 </div>
                 <button 
                   onClick={() => setShowNotifications(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -190,7 +318,7 @@ export default function Topbar({
               <div className="pt-2 border-t border-slate-800 text-center">
                 <button 
                   onClick={() => setShowNotifications(false)}
-                  className="text-[11px] font-semibold text-orange-400 hover:text-orange-300"
+                  className="text-[11px] font-semibold text-orange-400 hover:text-orange-300 cursor-pointer"
                 >
                   Close Panel
                 </button>
@@ -229,6 +357,16 @@ export default function Topbar({
               </div>
 
               <div className="space-y-1 my-2 text-xs">
+                <div 
+                  onClick={() => {
+                    if (onNavigate) onNavigate('settings');
+                    setShowProfile(false);
+                  }}
+                  className="px-3 py-2 text-slate-300 hover:bg-slate-800/60 rounded-xl flex items-center justify-between cursor-pointer"
+                >
+                  <span>System Settings</span>
+                  <SettingsIcon className="w-3.5 h-3.5 text-slate-400" />
+                </div>
                 <div className="px-3 py-2 text-slate-300 hover:bg-slate-800/60 rounded-xl flex items-center justify-between cursor-pointer">
                   <span>API Key</span>
                   <span className="font-mono text-[10px] text-slate-500">recuros_live_***</span>
@@ -243,11 +381,11 @@ export default function Topbar({
                 <button
                   onClick={() => {
                     setShowProfile(false);
-                    alert('Session active: Logged in as System Administrator.');
+                    if (onNavigate) onNavigate('dashboard');
                   }}
-                  className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition text-left"
+                  className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-orange-400 hover:text-orange-300 hover:bg-slate-800 transition text-left cursor-pointer"
                 >
-                  Verify Session Status
+                  Return to Dashboard
                 </button>
               </div>
             </div>
