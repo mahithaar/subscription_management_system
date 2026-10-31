@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import DashboardView from './views/DashboardView';
+import PlansView from './views/PlansView';
+import CustomersView from './views/CustomersView';
+import SubscriptionsView from './views/SubscriptionsView';
+import InvoicesView from './views/InvoicesView';
+import PaymentsView from './views/PaymentsView';
+import SettingsView from './views/SettingsView';
 import { apiRequest } from './api';
 import { ShieldCheck, X } from 'lucide-react';
 
@@ -106,15 +112,14 @@ export default function App() {
 
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} />}
-          {activeTab !== 'dashboard' && (
-            <div className="text-slate-400 p-12 text-center bg-[#16181e] border border-[#232733] rounded-2xl shadow-sm">
-              <h2 className="text-xl font-bold text-white capitalize">{activeTab} Manager</h2>
-              <p className="mt-2 text-sm text-slate-400">Integrated with RecurOS API</p>
-            </div>
-          )}
+          {activeTab === 'plans' && <PlansView onNavigate={setActiveTab} />}
+          {activeTab === 'customers' && <CustomersView onNavigate={setActiveTab} />}
+          {activeTab === 'subscriptions' && <SubscriptionsView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} />}
+          {activeTab === 'invoices' && <InvoicesView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} />}
+          {activeTab === 'payments' && <PaymentsView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} />}
+          {activeTab === 'settings' && <SettingsView onNavigate={setActiveTab} clock={clock} />}
         </main>
       </div>
     </div>
   );
 }
-
