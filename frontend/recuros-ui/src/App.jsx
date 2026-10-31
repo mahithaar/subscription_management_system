@@ -96,6 +96,62 @@ export default function App() {
     }
   };
 
+  // Real file download helper for CSV and spreadsheet files
+  const triggerDownload = (filename, content, mimeType = 'text/csv;charset=utf-8;') => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportMRR = () => {
+    const headers = "Subscription ID,Customer Name,Company,Plan Tier,Billing Cycle,Amount (INR),GST Tax (18%),Total (INR),Next Billing Date,Status\n";
+    const rows = [
+      "SUB-8901,John Doe,TechCorp Labs,Enterprise Pro,Monthly,4999.00,899.82,5898.82,2025-01-28,Active",
+      "SUB-8902,Sarah Miller,Studio Bloom,Growth Team,Monthly,1999.00,359.82,2358.82,2025-01-27,Active",
+      "SUB-8903,Robert Lee,ApexSoft Systems,Enterprise Pro,Yearly,49990.00,8998.20,58988.20,2025-11-12,Active",
+      "SUB-8904,Emma Parker,Bloom Creative Agency,Starter Solo,Monthly,799.00,143.82,942.82,2025-01-05,Trialing",
+      "SUB-8905,Vikram Malhotra,Zenith Cloud Services,Enterprise Pro,Monthly,4999.00,899.82,5898.82,2024-12-24,Past Due",
+      "SUB-8906,David Kim,Nexus Logic Corp,Growth Team,Monthly,1999.00,359.82,2358.82,2025-01-15,Active"
+    ].join("\n");
+    triggerDownload("recuros_mrr_arr_ledger.csv", headers + rows);
+    showToast("Downloaded recuros_mrr_arr_ledger.csv to your PC!", "success");
+    setShowReportModal(false);
+  };
+
+  const handleExportGST = () => {
+    const headers = "Invoice Number,Customer Name,GSTIN,Invoice Date,Due Date,Taxable Value (INR),CGST 9% (INR),SGST 9% (INR),Total GST 18% (INR),Total Invoice Value (INR),Payment Status\n";
+    const rows = [
+      "INV-2024-001,John Doe,GSTIN29AAACA1234A1Z5,2024-12-28,2025-01-10,4999.00,449.91,449.91,899.82,5898.82,Paid",
+      "INV-2024-002,Sarah Miller,GSTIN36AABCN5678B1Z2,2024-12-27,2025-01-09,1999.00,179.91,179.91,359.82,2358.82,Pending",
+      "INV-2024-003,Robert Lee,GSTIN29AABCR9999C1Z1,2024-12-26,2025-01-08,9999.00,899.91,899.91,1799.82,11798.82,Paid",
+      "INV-2024-004,Emma Parker,GSTIN27AAACK1111K1Z3,2024-12-25,2025-01-07,799.00,71.91,71.91,143.82,942.82,Pending",
+      "INV-2024-005,Vikram Malhotra,GSTIN33AABCM2222M1Z4,2024-12-24,2025-01-06,4999.00,449.91,449.91,899.82,5898.82,Failed",
+      "INV-2024-006,Aanya Sharma,GSTIN29AABCS3333S1Z5,2024-12-22,2025-01-04,1999.00,179.91,179.91,359.82,2358.82,Paid"
+    ].join("\n");
+    triggerDownload("recuros_gst_tax_filing.csv", headers + rows);
+    showToast("Downloaded recuros_gst_tax_filing.csv to your PC!", "success");
+    setShowReportModal(false);
+  };
+
+  const handleExportPayments = () => {
+    const headers = "Transaction ID,Invoice Reference,Customer Name,Payment Amount (INR),Payment Method,Gateway Partner,Status,Timestamp\n";
+    const rows = [
+      "TXN-77218,INV-2024-001,John Doe,5898.00,Credit Card (4242),Razorpay,Successful,2024-12-28 14:32",
+      "TXN-77217,INV-2024-003,Robert Lee,11798.00,Amex (1009),Stripe,Successful,2024-12-26 09:14",
+      "TXN-77216,INV-2024-005,Vikram Malhotra,5898.00,Credit Card (3319),Razorpay,Failed,2024-12-24 19:45",
+      "TXN-77215,INV-2024-006,Aanya Sharma,2358.00,UPI (aanya@okaxis),Razorpay,Successful,2024-12-22 11:05",
+      "TXN-77214,INV-2024-000,Rajesh Koothrappali,1999.00,Net Banking (HDFC),Cashfree,Refunded,2024-12-18 16:20"
+    ].join("\n");
+    triggerDownload("recuros_payment_transactions.csv", headers + rows);
+    showToast("Downloaded recuros_payment_transactions.csv to your PC!", "success");
+  };
+
   // Topbar action dispatcher
   const handleTopAction = () => {
     if (activeTab === 'dashboard') {
@@ -110,7 +166,7 @@ export default function App() {
     } else if (activeTab === 'invoices') {
       handleRunBilling();
     } else if (activeTab === 'payments') {
-      setShowReportModal(true);
+      handleExportPayments();
     } else if (activeTab === 'settings') {
       showToast('System settings saved successfully!', 'success');
     }
@@ -216,14 +272,11 @@ export default function App() {
                   <p className="text-[11px] text-slate-500">Breakdown by plan tier & cohorts</p>
                 </div>
                 <button 
-                  onClick={() => {
-                    showToast('Exported MRR & ARR ledger as CSV', 'success');
-                    setShowReportModal(false);
-                  }}
+                  onClick={handleExportMRR}
                   className="px-3 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>CSV</span>
+                  <span>Download CSV</span>
                 </button>
               </div>
 
@@ -233,14 +286,25 @@ export default function App() {
                   <p className="text-[11px] text-slate-500">CGST (9%) + SGST (9%) reconciliation</p>
                 </div>
                 <button 
-                  onClick={() => {
-                    showToast('Exported GST tax report as Excel file', 'success');
-                    setShowReportModal(false);
-                  }}
+                  onClick={handleExportGST}
                   className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>XLSX</span>
+                  <span>Download XLSX/CSV</span>
+                </button>
+              </div>
+
+              <div className="p-3 bg-[#0e1015] border border-slate-800 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-white">Payment Transactions Ledger</p>
+                  <p className="text-[11px] text-slate-500">Razorpay & Stripe audit trail</p>
+                </div>
+                <button 
+                  onClick={handleExportPayments}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download CSV</span>
                 </button>
               </div>
             </div>
