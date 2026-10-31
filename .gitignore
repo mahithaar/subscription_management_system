@@ -1,18 +1,9 @@
-<<<<<<< HEAD
 __pycache__/
 *.py[cod]
 *$py.class
 *.sqlite3
+*.db
 .DS_Store
 .vscode/
 .idea/
-=======
 node_modules/
-.env
-*.log
-dist/
-__pycache__/
-*.pyc
-recuros.db
-
->>>>>>> origin/main
