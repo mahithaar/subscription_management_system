@@ -161,6 +161,58 @@ async function resetTime() {
   }
 }
 
+async function previewBilling() {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_BASE}/billing/preview`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ mode: 'preview' })
+    });
+    const data = await res.json();
+    
+    // Display Proof Banner in Preview Mode
+    const banner = document.getElementById('proofBanner');
+    banner.classList.remove('hidden');
+    banner.classList.remove('border-emerald-500');
+    banner.classList.add('border-indigo-500');
+    
+    const summary = document.getElementById('proofSummary');
+    const proof = data.proof_panel || data.summary || {};
+    
+    const dueCount = proof.due_count !== undefined ? proof.due_count : (data.summary ? data.summary.total_evaluated : 0);
+    const invoicedCount = proof.invoiced_count !== undefined ? proof.invoiced_count : (data.summary ? data.summary.generated_count : 0);
+    const blockedCount = proof.duplicate_blocked_count !== undefined ? proof.duplicate_blocked_count : (data.summary ? data.summary.skipped_count : 0);
+    const mathProof = proof.mathematical_proof || 'Due == Invoiced + Blocked';
+
+    summary.innerHTML = `
+      <span class="text-xs uppercase font-extrabold tracking-wider text-indigo-400 block mb-1">Billing Run Preview (Dry Run — Zero Mutations)</span>
+      Evaluated <strong>${dueCount}</strong> subscriptions.
+      Projected Invoices: <span class="text-indigo-300 font-bold">${invoicedCount}</span>.
+      Blocked: <span class="text-amber-400 font-bold">${blockedCount}</span> duplicate items.
+      <br><span class="text-xs text-slate-400 font-mono mt-1 inline-block">Proof: ${mathProof}</span>
+    `;
+
+    const details = document.getElementById('proofDetails');
+    let html = '';
+    const items = data.items || [];
+    if (items.length) {
+      items.forEach(item => {
+        if (item.outcome === 'created') {
+          html += `<div class="bg-slate-900/60 p-2 rounded border border-indigo-500/30 mb-1 text-indigo-300">🔍 Projected: ${item.subscription_number || 'Sub'}: ${item.reason} (₹${item.total})</div>`;
+        } else {
+          html += `<div class="bg-slate-900/60 p-2 rounded border border-amber-500/30 mb-1 text-amber-300">🛡️ ${item.subscription_number || 'Sub'}: ${item.reason}</div>`;
+        }
+      });
+    } else {
+      html = '<div class="text-slate-400">No subscriptions were due for billing as of current simulated date.</div>';
+    }
+    details.innerHTML = html;
+  } catch (err) {
+    console.error('Error previewing billing:', err);
+  }
+}
+
 async function runBilling() {
   try {
     const headers = await getAuthHeaders();
@@ -174,6 +226,8 @@ async function runBilling() {
     // Display Proof Banner
     const banner = document.getElementById('proofBanner');
     banner.classList.remove('hidden');
+    banner.classList.remove('border-indigo-500');
+    banner.classList.add('border-emerald-500');
     
     const summary = document.getElementById('proofSummary');
     const proof = data.proof_panel || data.summary || {};
@@ -184,6 +238,7 @@ async function runBilling() {
     const mathProof = proof.mathematical_proof || 'Due == Invoiced + Blocked';
 
     summary.innerHTML = `
+      <span class="text-xs uppercase font-extrabold tracking-wider text-emerald-400 block mb-1">Billing Run Executed (Idempotency Shield Active)</span>
       Evaluated <strong>${dueCount}</strong> subscriptions.
       Generated <span class="text-emerald-400 font-bold">${invoicedCount}</span> invoices.
       Blocked <span class="text-amber-400 font-bold">${blockedCount}</span> duplicate items.
@@ -213,15 +268,17 @@ async function runBilling() {
 }
 
 async function recordPayment(invoiceId, amount) {
+  const method = prompt("Select payment method (Card / UPI / NetBanking / Bank Transfer):", "UPI") || "UPI";
   try {
     const headers = await getAuthHeaders();
-    await fetch(`${API_BASE}/payments`, {
+    await fetch(`${API_BASE}/invoices/${invoiceId}/pay`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        invoice_id: invoiceId,
         amount: amount,
-        method: 'UPI'
+        method: method,
+        gateway: 'Razorpay',
+        note: `Interactive payment via ${method}`
       })
     });
     await refreshAll();

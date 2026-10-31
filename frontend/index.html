@@ -39,10 +39,15 @@
         </button>
       </div>
 
-      <!-- RUN BILLING ACTION -->
-      <button onclick="runBilling()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2">
-        <i class="fa-solid fa-play"></i> Run Billing Run
-      </button>
+      <!-- BILLING PREVIEW & EXECUTE ACTIONS -->
+      <div class="flex items-center gap-2">
+        <button onclick="previewBilling()" class="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 active:scale-95 text-xs font-semibold px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow" title="Preview invoices without mutating database">
+          <i class="fa-solid fa-eye"></i> Billing Preview
+        </button>
+        <button onclick="runBilling()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-95 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-1.5">
+          <i class="fa-solid fa-play"></i> Run Billing Run
+        </button>
+      </div>
     </div>
   </header>
 

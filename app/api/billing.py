@@ -16,6 +16,20 @@ class BillingRunRequest(BaseModel):
     as_of_date: Optional[date] = None
     mode: str = "execute"  # "preview" or "execute"
 
+@router.post("/preview")
+@router.get("/preview")
+def preview_billing_run(
+    as_of_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_staff_or_admin)
+):
+    target_date = as_of_date if as_of_date else ClockService.get_today(db)
+    return BillingEngine.run_billing(
+        db=db,
+        as_of_date=target_date,
+        mode="preview"
+    )
+
 @router.post("/run")
 def execute_billing_run(
     payload: BillingRunRequest,

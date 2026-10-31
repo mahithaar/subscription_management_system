@@ -3,14 +3,23 @@ from datetime import date
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.all_models import Invoice, InvoiceLine, InvoiceState, User, UserRole
+from app.models.all_models import Invoice, InvoiceLine, Payment, InvoiceState, User, UserRole
 from app.api.deps import get_current_user, require_staff_or_admin
 from app.services.clock import ClockService
+from app.services.pricing import quantize_money
 
 router = APIRouter(prefix="/invoices", tags=["Invoices & Explain Trace"])
+
+class PayInvoiceRequest(BaseModel):
+    method: str = "Credit Card (•••• 4242)"
+    gateway: str = "Razorpay"
+    amount: Optional[Decimal] = None
+    note: Optional[str] = "Direct Invoice Payment"
+
 
 @router.get("")
 def list_invoices(
@@ -135,6 +144,77 @@ def get_invoice_detail(
         "amount_due": str(outstanding),
         "lines": lines,
         "payments": payments
+    }
+
+@router.post("/{invoice_id}/pay")
+def pay_invoice(
+    invoice_id: int,
+    payload: Optional[PayInvoiceRequest] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_staff_or_admin)
+):
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+
+    if inv.state == InvoiceState.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Cannot record payment against a cancelled invoice.")
+
+    outstanding = max(Decimal("0.00"), inv.total - inv.amount_paid)
+    if outstanding <= Decimal("0.00") and inv.state == InvoiceState.PAID.value:
+        return {
+            "success": True,
+            "message": f"Invoice {inv.number or inv.id} is already fully paid.",
+            "invoice_id": inv.id,
+            "state": inv.state
+        }
+
+    pay_amount = payload.amount if (payload and payload.amount is not None) else outstanding
+    pay_amount = quantize_money(pay_amount)
+
+    if pay_amount <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero.")
+
+    if pay_amount > outstanding:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment amount ({pay_amount}) exceeds outstanding balance ({outstanding}). Overpayments are restricted."
+        )
+
+    method = payload.method if payload else "card"
+    gateway = payload.gateway if payload else "Razorpay"
+    note = payload.note if payload else "Interactive Payment"
+
+    payment = Payment(
+        invoice_id=inv.id,
+        method=method,
+        amount=pay_amount,
+        paid_on=ClockService.get_today(db),
+        note=f"{note} via {gateway}",
+        recorded_by=user.email,
+        source="manual"
+    )
+    db.add(payment)
+
+    inv.amount_paid = quantize_money(inv.amount_paid + pay_amount)
+    if inv.amount_paid >= inv.total:
+        inv.state = InvoiceState.PAID.value
+    elif inv.amount_paid > Decimal("0.00"):
+        inv.state = "partial"
+
+    db.commit()
+    db.refresh(payment)
+    db.refresh(inv)
+
+    return {
+        "success": True,
+        "payment_id": payment.id,
+        "invoice_id": inv.id,
+        "amount": str(payment.amount),
+        "invoice_state": inv.state,
+        "amount_paid": str(inv.amount_paid),
+        "amount_due": str(max(Decimal("0.00"), inv.total - inv.amount_paid)),
+        "message": f"Payment of ₹{payment.amount} recorded successfully for Invoice {inv.number or inv.id}."
     }
 
 @router.post("/{invoice_id}/confirm")

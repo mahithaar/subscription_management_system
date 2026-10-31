@@ -98,10 +98,39 @@ router.post('/:id/pay', async (req, res) => {
   const invoice = memoryStore.invoices.find(i => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
 
-  const { payment_method = 'Credit Card (•••• 4242)', gateway = 'Razorpay' } = req.body;
+  if (invoice.status === 'Cancelled') {
+    return res.status(400).json({ error: 'Cannot pay a cancelled invoice.' });
+  }
 
-  invoice.status = 'Paid';
-  invoice.amount_paid = invoice.total_amount || 2358.82;
+  const { payment_method = 'Credit Card (•••• 4242)', gateway = 'Razorpay', amount, note = 'Interactive Payment' } = req.body;
+
+  const totalAmount = Number(invoice.total_amount || (invoice.subtotal ? invoice.subtotal * 1.18 : 2358.82));
+  const currentPaid = Number(invoice.amount_paid || (invoice.status === 'Paid' ? totalAmount : 0));
+  const outstanding = Math.max(0, totalAmount - currentPaid);
+
+  if (outstanding <= 0 && invoice.status === 'Paid') {
+    return res.json({
+      success: true,
+      message: `Invoice ${invoice.id} is already fully paid.`,
+      invoice
+    });
+  }
+
+  const payAmount = amount ? Number(amount) : outstanding;
+  if (payAmount <= 0) {
+    return res.status(400).json({ error: 'Payment amount must be greater than zero.' });
+  }
+  if (payAmount > outstanding + 0.01) {
+    return res.status(400).json({
+      error: `Payment amount (₹${payAmount}) exceeds outstanding due (₹${outstanding}). Overpayments are restricted.`
+    });
+  }
+
+  const newPaid = Math.round((currentPaid + payAmount) * 100) / 100;
+  const isFullyPaid = newPaid >= totalAmount - 0.01;
+
+  invoice.amount_paid = newPaid;
+  invoice.status = isFullyPaid ? 'Paid' : 'Partial';
   invoice.paid_date = await timeMachine.getCurrentDate();
 
   // Create payment record in payments audit log
@@ -111,23 +140,25 @@ router.post('/:id/pay', async (req, res) => {
     invoice_id: invoice.id,
     customer_id: invoice.customer_id,
     customer: invoice.customer,
-    amount: invoice.total || '₹2,358',
-    numeric_amount: invoice.total_amount || 2358.82,
+    amount: `₹${payAmount.toLocaleString('en-IN')}`,
+    numeric_amount: payAmount,
     method: payment_method,
-    payment_method: 'card',
+    payment_method: payment_method.toLowerCase().includes('card') ? 'card' : 'upi',
     gateway: gateway,
     status: 'Successful',
+    note: note,
     timestamp: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     created_at: new Date().toISOString(),
     refund_amount: 0
   };
 
+  if (!memoryStore.payments) memoryStore.payments = [];
   memoryStore.payments.unshift(newTxn);
 
-  console.log(`💰 [Invoices] Invoice ${invoice.id} paid via ${gateway}. Transaction: ${newTxn.id}`);
+  console.log(`💰 [Invoices] Invoice ${invoice.id} paid (₹${payAmount}) via ${gateway}. Transaction: ${newTxn.id}`);
   return res.json({
     success: true,
-    message: `Invoice ${invoice.id} marked as Paid`,
+    message: `Payment of ₹${payAmount} recorded for Invoice ${invoice.id}`,
     invoice,
     payment: newTxn
   });

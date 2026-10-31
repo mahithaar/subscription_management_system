@@ -44,16 +44,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount all API routers
-app.include_router(auth_router, prefix=settings.API_V1_STR)
-app.include_router(catalog_router, prefix=settings.API_V1_STR)
-app.include_router(subscriptions_router, prefix=settings.API_V1_STR)
-app.include_router(billing_router, prefix=settings.API_V1_STR)
-app.include_router(invoices_router, prefix=settings.API_V1_STR)
-app.include_router(payments_router, prefix=settings.API_V1_STR)
-app.include_router(clock_router, prefix=settings.API_V1_STR)
-app.include_router(dashboard_router, prefix=settings.API_V1_STR)
-app.include_router(reconciliation_router, prefix=settings.API_V1_STR)
+# Mount all API routers (Dual support for /api/v1 and /api)
+for prefix in [settings.API_V1_STR, "/api"]:
+    app.include_router(auth_router, prefix=prefix)
+    app.include_router(catalog_router, prefix=prefix)
+    app.include_router(subscriptions_router, prefix=prefix)
+    app.include_router(billing_router, prefix=prefix)
+    app.include_router(invoices_router, prefix=prefix)
+    app.include_router(payments_router, prefix=prefix)
+    app.include_router(clock_router, prefix=prefix)
+    app.include_router(dashboard_router, prefix=prefix)
+    app.include_router(reconciliation_router, prefix=prefix)
 
 import os
 from fastapi.staticfiles import StaticFiles
