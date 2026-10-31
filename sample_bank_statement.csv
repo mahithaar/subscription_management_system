@@ -1,0 +1,6 @@
+date,description,reference,amount
+2026-11-01,NEFT Inward - Acme Corporation,INV-2026-0001,1722.80
+2026-11-01,UPI Transfer from Nexus Technologies,NEXUS-TRANSFER-992,2360.00
+2026-11-02,Client Cash Deposit - Zenith Labs,ZENITH-OCT-PAY,1180.00
+2026-11-02,Misc Unmatched Bank Credit,TXN-UNKNOWN-8812,500.00
+

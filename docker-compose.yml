@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: recuros-db
+    environment:
+      POSTGRES_USER: recuros
+      POSTGRES_PASSWORD: recurospassword
+      POSTGRES_DB: recuros
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: recuros-redis
+    ports:
+      - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: recuros-mailpit
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP port
+
+  api:
+    build: .
+    container_name: recuros-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://recuros:recurospassword@db:5432/recuros
+      SECRET_KEY: recuros-secret-key-hackathon-2026-audit-proof
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:
+
