@@ -1,6 +1,15 @@
-import { Search, Bell, Clock, Play, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { Search, Bell, Clock, Play, RotateCcw, ChevronDown } from 'lucide-react';
 
-export default function Topbar({ activeTab, clockDate = 'Today', isSimulated = false, onAdvanceTime, onResetTime, onRunBilling }) {
+export default function Topbar({ 
+  activeTab = 'dashboard', 
+  clockDate = 'Today', 
+  isSimulated = false, 
+  onAdvanceTime, 
+  onResetTime, 
+  onRunBilling,
+  onActionClick
+}) {
   const titles = {
     dashboard: 'Subscription Dashboard',
     plans: 'Subscription Plans',
@@ -9,6 +18,16 @@ export default function Topbar({ activeTab, clockDate = 'Today', isSimulated = f
     invoices: 'Billing & Invoices',
     payments: 'Payment Transactions',
     settings: 'System & Profile Settings',
+  };
+
+  const actionLabels = {
+    dashboard: '+ Create Report',
+    plans: '+ New Plan',
+    customers: '+ Add Customer',
+    subscriptions: '+ New Subscription',
+    invoices: '+ Create Invoice',
+    payments: 'Export Records',
+    settings: 'Save Changes',
   };
 
   return (
@@ -64,18 +83,18 @@ export default function Topbar({ activeTab, clockDate = 'Today', isSimulated = f
         )}
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+        <button className="relative p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors">
           <Bell className="w-4 h-4" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-orange-500" />
         </button>
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
+        <div className="flex items-center gap-3 pl-2 border-l border-slate-800">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white font-semibold text-xs flex items-center justify-center shadow-sm">
             AC
           </div>
           <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-slate-800">Alex Carter</div>
+            <div className="text-xs font-semibold text-slate-200">Alex Carter</div>
             <div className="text-[10px] text-slate-400 font-medium">Administrator</div>
           </div>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 cursor-pointer" />
@@ -83,8 +102,8 @@ export default function Topbar({ activeTab, clockDate = 'Today', isSimulated = f
 
         {/* Action Button */}
         <button
-          onClick={onActionClick}
-          className="ml-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#111217] text-white hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-1.5"
+          onClick={onActionClick || (() => {})}
+          className="ml-2 px-4 py-2 rounded-xl text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white transition-colors shadow-sm flex items-center gap-1.5"
         >
           {actionLabels[activeTab] || '+ New Action'}
         </button>
