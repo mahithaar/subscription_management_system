@@ -92,8 +92,8 @@ export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
       {/* Title header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Subscription Dashboard</h1>
-          <p className="text-sm text-slate-500">Track recurring revenue, churn velocity, and member growth in real time.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Subscription Dashboard</h1>
+          <p className="text-sm text-slate-300">Track recurring revenue, churn velocity, and member growth in real time.</p>
         </div>
       </div>
 
