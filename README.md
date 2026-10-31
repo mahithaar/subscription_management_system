@@ -5,9 +5,20 @@ Built for **Brightloop Software** hackathon scenario.
 
 ---
 
+## 👥 Team Work Division
+
+| Member | Focus Area | Files / Modules |
+|---|---|---|
+| **Person 1** | Frontend / UI & Dashboard | `frontend/index.html`, `frontend/app.js`, `backend/routes/dashboard.js` |
+| **Person 2** | Backend / Subscriptions | `backend/routes/subscriptions.js` (Plans, Customers, Subscriptions) |
+| **Person 3** | Backend / Billing & Invoices | `backend/routes/billing.js` (Invoices, Taxes, Duplicate Prevention, Payments) |
+| **Person 4** | Architecture, Integration & Demo | `supabase/schema.sql`, `backend/timeMachine.js`, `backend/seed.js`, Integration |
+
+---
+
 ## 🚀 Quickstart
 
-### Option 1: Run Locally (Fastest for 4-Hour Hackathon)
+### Option A: Python API (FastAPI + SQLite)
 ```powershell
 # 1. Run the server (auto-initializes SQLite DB and seeds demo data)
 python run_server.py
@@ -16,7 +27,27 @@ python run_server.py
 # http://127.0.0.1:8000/docs
 ```
 
-### Option 2: Docker Compose (PostgreSQL + Redis + Mailpit + API)
+### Option B: Node.js + Supabase
+```bash
+cd backend
+npm install
+npm run seed
+npm start
+```
+Open **http://localhost:5000** in your browser!
+
+#### (Optional) Connect Supabase Cloud Database
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Go to **SQL Editor** -> copy and paste `supabase/schema.sql` -> click **Run**.
+3. Copy your project URL & Anon key to `backend/.env`:
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-or-service-role-key
+PORT=5000
+```
+*(Note: If no Supabase credentials are provided, RecurOS automatically runs in **Zero-Config In-Memory Mode** so your team can build and demo immediately!)*
+
+### Option C: Docker Compose (PostgreSQL + Redis + Mailpit + API)
 ```bash
 docker compose up --build
 ```
@@ -57,4 +88,3 @@ Run the full suite:
 python -m unittest discover tests
 ```
 Results: **10/10 tests passing** covering password rules (8 vs 9 chars), Odoo variant pricing (+560), discount bounds, tax calculations, live double-billing idempotency, and reconciliation.
-
