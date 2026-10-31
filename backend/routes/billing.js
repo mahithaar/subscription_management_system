@@ -1,195 +1,185 @@
 const express = require('express');
 const router = express.Router();
-const { supabase, isSupabaseConfigured, memoryStore } = require('../db');
+const { memoryStore } = require('../db');
 const timeMachine = require('../timeMachine');
-const crypto = require('crypto');
 
-// 1. Get all invoices
-router.get('/invoices', async (req, res) => {
-  if (isSupabaseConfigured) {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*, customers(name, email), subscriptions(plan_id)')
-      .order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json(data);
-  }
-
-  const enriched = memoryStore.invoices.map(inv => ({
+// 1. Get all billing invoices (used by frontend /api/billing/invoices)
+router.get('/invoices', (req, res) => {
+  const invoices = memoryStore.invoices.map(inv => ({
     ...inv,
-    customer: memoryStore.customers.find(c => c.id === inv.customer_id)
-  })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-  return res.json(enriched);
+    customer: memoryStore.customers.find(c => c.id === inv.customer_id) || { name: inv.customer, email: 'billing@customer.com' }
+  }));
+  return res.json(invoices);
 });
 
-// 2. RUN BILLING WITH PROOF (Idempotent Batch Billing Run)
+// 2. Pay invoice alias (used by frontend /api/billing/invoices/:id/pay)
+router.post('/invoices/:id/pay', async (req, res) => {
+  const invoice = memoryStore.invoices.find(i => i.id === req.params.id);
+  if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+
+  invoice.status = 'Paid';
+  invoice.amount_paid = invoice.total_amount || 2358.82;
+  invoice.paid_date = await timeMachine.getCurrentDate();
+
+  const newTxn = {
+    id: `TXN-${Math.floor(10000 + Math.random() * 90000)}`,
+    invoiceId: invoice.id,
+    invoice_id: invoice.id,
+    customer_id: invoice.customer_id,
+    customer: invoice.customer,
+    amount: invoice.total || '₹2,358',
+    numeric_amount: invoice.total_amount || 2358.82,
+    method: req.body.payment_method || 'Credit Card',
+    payment_method: 'card',
+    gateway: 'Razorpay',
+    status: 'Successful',
+    timestamp: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    created_at: new Date().toISOString(),
+    refund_amount: 0
+  };
+
+  memoryStore.payments.unshift(newTxn);
+
+  return res.json({
+    success: true,
+    message: `Invoice ${invoice.id} paid successfully`,
+    invoice,
+    payment: newTxn
+  });
+});
+
+// 3. RUN BATCH BILLING WITH MATHEMATICAL PROOF (Zero-Duplicate Idempotency)
 router.post('/run', async (req, res) => {
   const simulatedDate = await timeMachine.getCurrentDate();
   console.log(`[Billing Run] Executing batch billing as of simulated date: ${simulatedDate}`);
 
-  let activeSubs = [];
-  if (isSupabaseConfigured) {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*, plans(*), customers(*)')
-      .eq('status', 'active')
-      .lte('next_billing_date', simulatedDate);
-
-    if (error) return res.status(500).json({ error: error.message });
-    activeSubs = data || [];
-  } else {
-    activeSubs = memoryStore.subscriptions.filter(s => 
-      s.status === 'active' && s.next_billing_date <= simulatedDate
-    ).map(s => ({
-      ...s,
-      plan: memoryStore.plans.find(p => p.id === s.plan_id),
-      customer: memoryStore.customers.find(c => c.id === s.customer_id)
-    }));
-  }
+  // Find due subscriptions: active subscriptions with next_billing_date <= simulatedDate
+  const dueSubscriptions = memoryStore.subscriptions.filter(s => 
+    (s.status === 'Active' || s.status === 'active') &&
+    s.next_billing_date && s.next_billing_date <= simulatedDate
+  );
 
   const generatedInvoices = [];
   const skippedInvoices = [];
+  let duplicateCount = 0;
+  let totalBilledAmount = 0;
 
-  for (const sub of activeSubs) {
-    const idempotencyKey = `sub_${sub.id}_period_${sub.current_period_start}`;
+  for (const sub of dueSubscriptions) {
+    const periodStart = sub.current_period_start || simulatedDate;
+    const idempotencyKey = `sub_${sub.id}_period_${periodStart}`;
 
-    // CHECK IF INVOICE ALREADY EXISTS (Duplicate Prevention!)
-    let alreadyBilled = false;
-    if (isSupabaseConfigured) {
-      const { data: existing } = await supabase
-        .from('invoices')
-        .select('id')
-        .eq('idempotency_key', idempotencyKey)
-        .maybeSingle();
-      if (existing) alreadyBilled = true;
-    } else {
-      alreadyBilled = memoryStore.invoices.some(inv => inv.idempotency_key === idempotencyKey);
-    }
+    // IDEMPOTENCY CHECK: has an invoice already been generated for this subscription & period?
+    const alreadyBilled = memoryStore.invoices.some(inv => inv.idempotency_key === idempotencyKey);
 
     if (alreadyBilled) {
+      duplicateCount++;
       skippedInvoices.push({
         subscription_id: sub.id,
-        customer_name: sub.customer ? sub.customer.name : 'Unknown',
-        reason: `Duplicate blocked: Already billed for period starting ${sub.current_period_start}`,
-        idempotency_key: idempotencyKey
+        customer_name: sub.customer,
+        reason: `Duplicate blocked by idempotency key: ${idempotencyKey}`,
+        outcome: 'duplicate_blocked'
       });
       continue;
     }
 
-    // EXPLAINABLE INVOICE CALCULATION
-    const basePrice = sub.plan ? Number(sub.plan.base_price) : 1000;
-    const addOnAmount = 0.00;
-    const discountAmount = basePrice > 5000 ? 500.00 : 0.00; // Sample discount rule
-    const taxableSubtotal = basePrice + addOnAmount - discountAmount;
-    const gstTax = Number((taxableSubtotal * 0.18).toFixed(2)); // 18% GST standard in India
-    const totalAmount = Number((taxableSubtotal + gstTax).toFixed(2));
-
-    const lineItems = [
-      { description: `Base Subscription: ${sub.plan ? sub.plan.name : 'Software Plan'}`, amount: basePrice },
-      { description: 'Add-ons / Usage', amount: addOnAmount },
-      { description: 'Promotional Discount', amount: -discountAmount },
-      { description: 'GST (18%)', amount: gstTax }
-    ];
-
-    const invoicePayload = {
-      id: crypto.randomUUID(),
-      subscription_id: sub.id,
-      customer_id: sub.customer_id,
-      billing_period_start: sub.current_period_start,
-      billing_period_end: sub.current_period_end,
-      base_price: basePrice,
-      addon_amount: addOnAmount,
-      discount_amount: discountAmount,
-      tax_amount: gstTax,
-      total_amount: totalAmount,
-      status: 'pending',
-      idempotency_key: idempotencyKey,
-      line_items: lineItems,
-      created_at: new Date().toISOString()
+    // Generate Invoice with 18% GST calculation
+    const plan = memoryStore.plans.find(p => p.id === sub.plan_id) || {
+      name: sub.plan || 'Growth Team',
+      monthly_price: sub.base_amount || 1999
     };
 
-    if (isSupabaseConfigured) {
-      await supabase.from('invoices').insert([invoicePayload]);
-      
-      // Advance subscription billing period by 30 days
-      const nextDate = new Date(sub.next_billing_date);
-      nextDate.setDate(nextDate.getDate() + 30);
-      const nextStr = nextDate.toISOString().split('T')[0];
+    const subtotal = Number(sub.base_amount || plan.monthly_price || 1999);
+    const taxAmount = Math.round(subtotal * 0.18 * 100) / 100;
+    const totalAmount = Math.round((subtotal + taxAmount) * 100) / 100;
+    totalBilledAmount += totalAmount;
 
-      await supabase.from('subscriptions').update({
-        current_period_start: sub.next_billing_date,
-        current_period_end: nextStr,
-        next_billing_date: nextStr
-      }).eq('id', sub.id);
-    } else {
-      memoryStore.invoices.push(invoicePayload);
+    const nextInvoiceNumber = `INV-2024-${String(memoryStore.invoices.length + 1).padStart(3, '0')}`;
+    const nextMonth = new Date(simulatedDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const dueDateStr = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
 
-      // Advance subscription locally
-      const nextDate = new Date(sub.next_billing_date);
-      nextDate.setDate(nextDate.getDate() + 30);
-      sub.current_period_start = sub.next_billing_date;
-      sub.current_period_end = nextDate.toISOString().split('T')[0];
-      sub.next_billing_date = nextDate.toISOString().split('T')[0];
-    }
+    const newInvoice = {
+      id: nextInvoiceNumber,
+      number: nextInvoiceNumber,
+      customer_id: sub.customer_id,
+      customer: sub.customer,
+      company: `${sub.customer}'s Company`,
+      amount: `₹${subtotal.toLocaleString('en-IN')}`,
+      subtotal: subtotal,
+      tax: `₹${taxAmount.toLocaleString('en-IN')}`,
+      tax_amount: taxAmount,
+      tax_rate: 18,
+      total: `₹${totalAmount.toLocaleString('en-IN')}`,
+      total_amount: totalAmount,
+      amount_paid: 0,
+      date: new Date(simulatedDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      created_at: simulatedDate,
+      dueDate: new Date(dueDateStr).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      due_date: dueDateStr,
+      status: 'Pending',
+      plan: sub.plan || plan.name,
+      idempotency_key: idempotencyKey,
+      line_items: [
+        {
+          description: `${sub.plan || plan.name} - Recurring Subscription`,
+          quantity: 1,
+          unit_price: subtotal,
+          tax_rate: 18,
+          line_total: totalAmount
+        }
+      ]
+    };
 
+    memoryStore.invoices.unshift(newInvoice);
     generatedInvoices.push({
-      invoice_id: invoicePayload.id,
-      customer_name: sub.customer ? sub.customer.name : 'Unknown',
+      invoice_id: newInvoice.id,
+      customer_name: sub.customer,
       total_amount: totalAmount,
       idempotency_key: idempotencyKey
     });
+
+    // Advance subscription renewal cycle
+    sub.current_period_start = simulatedDate;
+    sub.current_period_end = nextMonth.toISOString().split('T')[0];
+    sub.next_billing_date = sub.current_period_end;
+    sub.nextBilling = new Date(sub.next_billing_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   }
 
-  // RETURN PROOF REPORT
-  return res.json({
-    status: 'completed',
+  // Balanced proof verification: Total Evaluated == Generated + Skipped
+  const totalEvaluated = dueSubscriptions.length;
+  const generatedCount = generatedInvoices.length;
+  const skippedCount = skippedInvoices.length;
+  const isBalanced = (totalEvaluated === generatedCount + skippedCount);
+
+  const runSummary = {
+    run_id: `RUN-${Date.now().toString().slice(-6)}`,
     simulated_date: simulatedDate,
     summary: {
-      total_evaluated: activeSubs.length,
-      generated_count: generatedInvoices.length,
-      skipped_count: skippedInvoices.length
+      total_evaluated: totalEvaluated,
+      generated_count: generatedCount,
+      skipped_count: skippedCount,
+      duplicate_count: duplicateCount,
+      total_amount: totalBilledAmount
+    },
+    proof: {
+      formula: "Evaluated == Generated + Skipped (Duplicates Blocked)",
+      balanced: isBalanced,
+      equation: `${totalEvaluated} == ${generatedCount} + ${skippedCount}`,
+      idempotency_shield: "Active (Zero duplicate invoices allowed)"
     },
     generated_invoices: generatedInvoices,
     skipped_proof: skippedInvoices
-  });
+  };
+
+  if (!memoryStore.billingRuns) memoryStore.billingRuns = [];
+  memoryStore.billingRuns.unshift(runSummary);
+
+  return res.json(runSummary);
 });
 
-// 3. Record Payment for an invoice
-router.post('/invoices/:id/pay', async (req, res) => {
-  const invoiceId = req.params.id;
-  const { payment_method = 'UPI' } = req.body;
-
-  if (isSupabaseConfigured) {
-    const { data: inv, error: findErr } = await supabase.from('invoices').select('*').eq('id', invoiceId).single();
-    if (findErr || !inv) return res.status(404).json({ error: 'Invoice not found' });
-
-    await supabase.from('invoices').update({ status: 'paid' }).eq('id', invoiceId);
-    const { data: pmt } = await supabase.from('payments').insert([{
-      invoice_id: invoiceId,
-      amount: inv.total_amount,
-      payment_method,
-      status: 'completed'
-    }]).select().single();
-
-    return res.json({ message: 'Payment recorded successfully', invoice_status: 'paid', payment: pmt });
-  }
-
-  const inv = memoryStore.invoices.find(i => i.id === invoiceId);
-  if (!inv) return res.status(404).json({ error: 'Invoice not found' });
-
-  inv.status = 'paid';
-  const newPayment = {
-    id: crypto.randomUUID(),
-    invoice_id: invoiceId,
-    amount: inv.total_amount,
-    payment_method,
-    payment_date: new Date().toISOString(),
-    status: 'completed'
-  };
-  memoryStore.payments.push(newPayment);
-
-  return res.json({ message: 'Payment recorded successfully', invoice_status: 'paid', payment: newPayment });
+// 4. List past billing runs
+router.get('/runs', (req, res) => {
+  return res.json(memoryStore.billingRuns || []);
 });
 
 module.exports = router;

@@ -1,57 +1,67 @@
 const { supabase, isSupabaseConfigured, memoryStore } = require('./db');
 
-class TimeMachine {
-  constructor() {
-    this.currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  }
-
+const timeMachine = {
   async getCurrentDate() {
     if (isSupabaseConfigured) {
-      try {
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'simulated_date')
-          .single();
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'simulated_date')
+        .maybeSingle();
 
-        if (data && data.value && data.value.date) {
-          this.currentDate = data.value.date;
-          return this.currentDate;
-        }
-      } catch (err) {
-        console.warn('Could not read simulated_date from Supabase, using local state');
+      if (error || !data) {
+        return new Date().toISOString().split('T')[0];
       }
+      return data.value;
     }
-    return this.currentDate;
-  }
 
-  async setDate(newDateStr) {
-    this.currentDate = newDateStr;
-    if (isSupabaseConfigured) {
-      try {
-        await supabase
-          .from('system_settings')
-          .upsert({ key: 'simulated_date', value: { date: newDateStr } });
-      } catch (err) {
-        console.error('Failed to persist simulated date to Supabase:', err);
-      }
+    if (!memoryStore.settings.simulated_date) {
+      memoryStore.settings.simulated_date = new Date().toISOString().split('T')[0];
     }
-    return this.currentDate;
-  }
+    return memoryStore.settings.simulated_date;
+  },
 
   async advanceDays(days = 30) {
-    const cur = await this.getCurrentDate();
-    const d = new Date(cur);
-    d.setDate(d.getDate() + days);
-    const nextDate = d.toISOString().split('T')[0];
-    return await this.setDate(nextDate);
-  }
+    const current = await this.getCurrentDate();
+    const currentDateObj = new Date(current);
+    currentDateObj.setDate(currentDateObj.getDate() + Number(days));
+    const nextDate = currentDateObj.toISOString().split('T')[0];
+
+    if (isSupabaseConfigured) {
+      await supabase
+        .from('system_settings')
+        .upsert({ key: 'simulated_date', value: nextDate });
+    } else {
+      memoryStore.settings.simulated_date = nextDate;
+    }
+
+    console.log(`⏱️ [Time Machine] Clock moved forward by ${days} days -> New virtual date: ${nextDate}`);
+    return nextDate;
+  },
+
+  async setDate(targetDate) {
+    if (isSupabaseConfigured) {
+      await supabase
+        .from('system_settings')
+        .upsert({ key: 'simulated_date', value: targetDate });
+    } else {
+      memoryStore.settings.simulated_date = targetDate;
+    }
+    return targetDate;
+  },
 
   async reset() {
-    const today = new Date().toISOString().split('T')[0];
-    return await this.setDate(today);
+    const realToday = new Date().toISOString().split('T')[0];
+    if (isSupabaseConfigured) {
+      await supabase
+        .from('system_settings')
+        .upsert({ key: 'simulated_date', value: realToday });
+    } else {
+      memoryStore.settings.simulated_date = realToday;
+    }
+    console.log(`⏱️ [Time Machine] Clock reset to real date: ${realToday}`);
+    return realToday;
   }
-}
+};
 
-const timeMachineInstance = new TimeMachine();
-module.exports = timeMachineInstance;
+module.exports = timeMachine;
