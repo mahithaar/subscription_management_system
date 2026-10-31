@@ -64,6 +64,9 @@ vite_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend",
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 
 if os.path.exists(vite_dist):
+    assets_dir = os.path.join(vite_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
     app.mount("/app", StaticFiles(directory=vite_dist, html=True), name="frontend")
 elif os.path.exists(frontend_path):
     app.mount("/app", StaticFiles(directory=frontend_path, html=True), name="frontend")

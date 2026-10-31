@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, 
   Users, 
@@ -24,34 +24,67 @@ import {
   Cell 
 } from 'recharts';
 import { mockDashboardData } from '../data/mockData';
+import { apiRequest } from '../api';
 
-export default function DashboardView({ onNavigate }) {
+export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
   const [chartTab, setChartTab] = useState('revenue');
+  const [liveKpis, setLiveKpis] = useState(null);
+  const [liveInvoices, setLiveInvoices] = useState(null);
   const { metrics, revenueTrend, subscriptionStatus, recentInvoices, popularPlans } = mockDashboardData;
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Paid':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3" /> Paid
-          </span>
-        );
-      case 'Pending':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-            <Clock className="w-3 h-3" /> Pending
-          </span>
-        );
-      case 'Failed':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
-            <AlertCircle className="w-3 h-3" /> Failed
-          </span>
-        );
-      default:
-        return <span className="text-xs text-slate-500">{status}</span>;
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const metricsData = await apiRequest('/dashboard/metrics');
+        if (metricsData && metricsData.kpis) {
+          setLiveKpis(metricsData.kpis);
+        }
+      } catch (err) {
+        console.warn('Metrics load error:', err);
+      }
+      try {
+        const invs = await apiRequest('/invoices');
+        if (Array.isArray(invs)) {
+          setLiveInvoices(invs);
+        }
+      } catch (err) {
+        console.warn('Invoices load error:', err);
+      }
     }
+    loadData();
+  }, [refreshTrigger]);
+
+  const getStatusBadge = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'paid') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <CheckCircle2 className="w-3 h-3" /> Paid
+        </span>
+      );
+    }
+    if (s === 'confirmed' || s === 'pending') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+          <Clock className="w-3 h-3" /> {s === 'confirmed' ? 'Confirmed' : 'Pending'}
+        </span>
+      );
+    }
+    if (s === 'draft') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+          <Clock className="w-3 h-3" /> Draft
+        </span>
+      );
+    }
+    if (s === 'failed' || s === 'cancelled') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">
+          <AlertCircle className="w-3 h-3" /> {s === 'cancelled' ? 'Cancelled' : 'Failed'}
+        </span>
+      );
+    }
+    return <span className="text-xs text-slate-500">{status}</span>;
   };
 
   return (
@@ -78,7 +111,9 @@ export default function DashboardView({ onNavigate }) {
           </div>
           <div className="mt-4">
             <div className="text-xs text-slate-400 font-medium">Monthly Recurring Revenue</div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1 text-white">{metrics.mrr.value}</div>
+            <div className="text-3xl font-extrabold tracking-tight mt-1 text-white">
+              {liveKpis ? `₹${Number(liveKpis.mrr).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : metrics.mrr.value}
+            </div>
             <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>{metrics.mrr.change}</span>
@@ -101,7 +136,9 @@ export default function DashboardView({ onNavigate }) {
           </div>
           <div className="mt-4">
             <div className="text-xs text-slate-500 font-medium">Active Subscriptions</div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">{metrics.activeSubscriptions.value}</div>
+            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">
+              {liveKpis ? liveKpis.active_subscriptions : metrics.activeSubscriptions.value}
+            </div>
             <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-600">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>{metrics.activeSubscriptions.change}</span>
@@ -122,7 +159,9 @@ export default function DashboardView({ onNavigate }) {
           </div>
           <div className="mt-4">
             <div className="text-xs text-slate-500 font-medium">Total Customers</div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">{metrics.totalCustomers.value}</div>
+            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">
+              {liveKpis ? liveKpis.total_customers : metrics.totalCustomers.value}
+            </div>
             <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-600">
               <ArrowUpRight className="w-3.5 h-3.5" />
               <span>{metrics.totalCustomers.change}</span>
@@ -143,10 +182,12 @@ export default function DashboardView({ onNavigate }) {
           </div>
           <div className="mt-4">
             <div className="text-xs text-slate-500 font-medium">Pending Invoices</div>
-            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">{metrics.pendingInvoices.value}</div>
+            <div className="text-3xl font-extrabold tracking-tight mt-1 text-slate-900">
+              {liveKpis ? `₹${Number(liveKpis.overdue_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : metrics.pendingInvoices.value}
+            </div>
             <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-slate-500">
               <ArrowDownRight className="w-3.5 h-3.5 text-amber-500" />
-              <span>Action required</span>
+              <span>{liveKpis ? `${liveKpis.overdue_count} overdue` : 'Action required'}</span>
               <span className="text-slate-400 font-normal">for collection</span>
             </div>
           </div>
@@ -332,7 +373,18 @@ export default function DashboardView({ onNavigate }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {recentInvoices.map((inv) => (
+                {((liveInvoices && liveInvoices.length > 0)
+                  ? liveInvoices.slice(0, 6).map((inv) => ({
+                      id: inv.number || `INV-${inv.id}`,
+                      customer: inv.customer_name || `Customer #${inv.customer_id}`,
+                      plan: inv.subscription_number || 'Recurring Plan',
+                      amount: `₹${Number(inv.total).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+                      date: inv.invoice_date,
+                      status: inv.state ? inv.state.charAt(0).toUpperCase() + inv.state.slice(1) : 'Pending',
+                      avatar: (inv.customer_name ? inv.customer_name.charAt(0) : 'C').toUpperCase()
+                    }))
+                  : recentInvoices
+                ).map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 pl-1">
                       <div className="flex items-center gap-2.5">
