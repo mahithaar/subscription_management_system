@@ -1,14 +1,49 @@
 import React, { useState } from 'react';
-import { Layers, CheckCircle2, Plus, ArrowRight } from 'lucide-react';
+import { Layers, CheckCircle2, Plus, ArrowRight, X } from 'lucide-react';
 import { mockPlans } from '../data/mockData';
 
-export default function PlansView({ onNavigate }) {
+export default function PlansView({ onNavigate, triggerNewPlanModal, setTriggerNewPlanModal, onToast }) {
   const [billingCycle, setBillingCycle] = useState('monthly');
+  const [plans, setPlans] = useState(mockPlans);
   const [showModal, setShowModal] = useState(false);
   const [newPlanName, setNewPlanName] = useState('');
   const [newPlanPrice, setNewPlanPrice] = useState('');
+  const [newPlanDesc, setNewPlanDesc] = useState('');
 
-  const plans = mockPlans;
+  // Handle external trigger from Topbar button
+  if (triggerNewPlanModal && !showModal) {
+    setShowModal(true);
+    setTriggerNewPlanModal(false);
+  }
+
+  const handleSavePlan = () => {
+    if (!newPlanName || !newPlanPrice) {
+      if (onToast) onToast('Please enter plan name and price', 'warning');
+      return;
+    }
+    const createdPlan = {
+      id: `plan-${Date.now()}`,
+      name: newPlanName,
+      description: newPlanDesc || 'Configured recurring SaaS tier with custom quotas.',
+      price: `₹${parseInt(newPlanPrice).toLocaleString('en-IN')}`,
+      period: 'per month',
+      popular: false,
+      activeSubscribers: 1,
+      mrr: `₹${parseInt(newPlanPrice).toLocaleString('en-IN')}`,
+      features: [
+        'Automated monthly invoicing',
+        'Stripe & Razorpay auto-charge',
+        'Custom webhooks & API access',
+        'Standard 24/7 SLA'
+      ]
+    };
+    setPlans([createdPlan, ...plans]);
+    setShowModal(false);
+    setNewPlanName('');
+    setNewPlanPrice('');
+    setNewPlanDesc('');
+    if (onToast) onToast(`New plan "${createdPlan.name}" added successfully!`, 'success');
+  };
 
   return (
     <div className="space-y-6">
@@ -40,7 +75,7 @@ export default function PlansView({ onNavigate }) {
 
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-500/20 transition"
+            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-500/20 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Plan</span>
@@ -50,7 +85,7 @@ export default function PlansView({ onNavigate }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
-          const priceNumber = parseInt(plan.price.replace(/[^\d]/g, ''), 10);
+          const priceNumber = parseInt(plan.price.replace(/[^\d]/g, ''), 10) || 999;
           const displayPrice = billingCycle === 'yearly' 
             ? `₹${Math.round(priceNumber * 12 * 0.8).toLocaleString('en-IN')}` 
             : plan.price;
@@ -109,7 +144,7 @@ export default function PlansView({ onNavigate }) {
 
               <button
                 onClick={() => onNavigate('subscriptions')}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   plan.popular
                     ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/30'
                     : 'bg-[#1e222d] hover:bg-slate-700 text-white'
@@ -123,17 +158,25 @@ export default function PlansView({ onNavigate }) {
         })}
       </div>
 
+      {/* Add Plan Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#14161d] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#14161d] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <h3 className="text-lg font-bold text-white">Create New Plan Tier</h3>
             <p className="text-xs text-slate-400 mt-1">Configure pricing tier to start onboarding subscribers.</p>
+            
             <div className="space-y-4 my-5">
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1">Plan Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Enterprise Plus"
+                  placeholder="e.g. Dedicated Enterprise Plus"
                   value={newPlanName}
                   onChange={(e) => setNewPlanName(e.target.value)}
                   className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
@@ -149,7 +192,18 @@ export default function PlansView({ onNavigate }) {
                   className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
                 />
               </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Description</label>
+                <textarea
+                  rows="2"
+                  placeholder="Summary of target tier and included SLA..."
+                  value={newPlanDesc}
+                  onChange={(e) => setNewPlanDesc(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                />
+              </div>
             </div>
+
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowModal(false)}
@@ -158,13 +212,10 @@ export default function PlansView({ onNavigate }) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  alert('New plan tier created successfully!');
-                  setShowModal(false);
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white"
+                onClick={handleSavePlan}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/20 transition cursor-pointer"
               >
-                Save Plan
+                Save & Publish Plan
               </button>
             </div>
           </div>

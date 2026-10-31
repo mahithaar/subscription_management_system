@@ -1,12 +1,49 @@
 import React, { useState } from 'react';
-import { Users, Search, MoreVertical, Plus, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Users, Search, Plus, X } from 'lucide-react';
 import { mockCustomers } from '../data/mockData';
 
-export default function CustomersView({ onNavigate }) {
+export default function CustomersView({ onNavigate, triggerNewCustomerModal, setTriggerNewCustomerModal, onToast }) {
+  const [customers, setCustomers] = useState(mockCustomers);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('ALL');
+  const [showModal, setShowModal] = useState(false);
 
-  const filtered = mockCustomers.filter(c => {
+  // New customer form state
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
+  const [email, setEmail] = useState('');
+  const [plan, setPlan] = useState('Growth Team');
+
+  if (triggerNewCustomerModal && !showModal) {
+    setShowModal(true);
+    setTriggerNewCustomerModal(false);
+  }
+
+  const handleCreateCustomer = () => {
+    if (!name || !email) {
+      if (onToast) onToast('Please enter customer name and email', 'warning');
+      return;
+    }
+    const newCust = {
+      id: `CUST-${String(customers.length + 1).padStart(3, '0')}`,
+      name,
+      email,
+      company: company || 'Independent Company',
+      plan,
+      status: 'Active',
+      spent: '₹0',
+      joinDate: 'Oct 31, 2026',
+      avatar: name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+    };
+    setCustomers([newCust, ...customers]);
+    setShowModal(false);
+    setName('');
+    setCompany('');
+    setEmail('');
+    if (onToast) onToast(`Customer ${newCust.name} added to directory!`, 'success');
+  };
+
+  const filtered = customers.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
                           c.company.toLowerCase().includes(search.toLowerCase()) ||
                           c.email.toLowerCase().includes(search.toLowerCase());
@@ -46,8 +83,8 @@ export default function CustomersView({ onNavigate }) {
             />
           </div>
           <button 
-            onClick={() => alert('Customer invite modal opened')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-xs font-bold transition shadow-md shadow-orange-500/20"
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-xs font-bold transition shadow-md shadow-orange-500/20 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add Customer</span>
@@ -61,7 +98,7 @@ export default function CustomersView({ onNavigate }) {
           <button
             key={tab}
             onClick={() => setFilter(tab)}
-            className={`px-3 py-1.5 rounded-lg transition-colors ${
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
               filter === tab ? 'bg-orange-500 text-white shadow-sm' : 'hover:text-white hover:bg-slate-800/50'
             }`}
           >
@@ -107,7 +144,7 @@ export default function CustomersView({ onNavigate }) {
                   <td className="py-3.5 px-5 text-right">
                     <button 
                       onClick={() => onNavigate('subscriptions')}
-                      className="px-2.5 py-1 text-[11px] font-semibold text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/20 rounded-lg transition"
+                      className="px-2.5 py-1 text-[11px] font-semibold text-orange-400 hover:text-white bg-orange-500/10 hover:bg-orange-500/20 rounded-lg transition cursor-pointer"
                     >
                       Manage
                     </button>
@@ -118,6 +155,82 @@ export default function CustomersView({ onNavigate }) {
           </table>
         </div>
       </div>
+
+      {/* Add Customer Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#14161d] border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-lg font-bold text-white">Add New Customer</h3>
+            <p className="text-xs text-slate-400 mt-1">Register a new client profile into the billing directory.</p>
+            
+            <div className="space-y-4 my-5">
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Contact Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Priya Sundaram"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Company / Organization</label>
+                <input
+                  type="text"
+                  placeholder="e.g. HyperScale Tech PVT Ltd"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Billing Email</label>
+                <input
+                  type="email"
+                  placeholder="e.g. priya@hyperscale.io"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 block mb-1">Initial Plan Tier</label>
+                <select
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value)}
+                  className="w-full px-3.5 py-2 text-xs bg-[#0e1015] border border-slate-800 rounded-xl text-white focus:outline-none focus:border-orange-500"
+                >
+                  <option value="Enterprise Pro">Enterprise Pro (₹4,999/mo)</option>
+                  <option value="Growth Team">Growth Team (₹1,999/mo)</option>
+                  <option value="Starter Solo">Starter Solo (₹799/mo)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateCustomer}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/20 transition cursor-pointer"
+              >
+                Create Customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

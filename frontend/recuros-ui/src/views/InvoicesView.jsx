@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { FileText, CheckCircle2, Clock, AlertCircle, Download, ExternalLink } from 'lucide-react';
+import { FileText, CheckCircle2, Clock, AlertCircle, Download, ExternalLink, X, Printer } from 'lucide-react';
 import { mockInvoices } from '../data/mockData';
 
-export default function InvoicesView({ onNavigate, refreshTrigger = 0 }) {
+export default function InvoicesView({ onNavigate, refreshTrigger = 0, onToast }) {
   const [filter, setFilter] = useState('ALL');
   const [invoices, setInvoices] = useState(mockInvoices);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   const handlePay = (id) => {
     setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: 'Paid' } : inv));
-    alert(`Invoice ${id} marked as Paid via gateway transaction!`);
+    if (onToast) onToast(`Invoice ${id} marked as Paid via gateway transaction!`, 'success');
   };
 
   const filtered = invoices.filter(inv => {
@@ -28,7 +29,7 @@ export default function InvoicesView({ onNavigate, refreshTrigger = 0 }) {
             <button
               key={t}
               onClick={() => setFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 filter === t ? 'bg-orange-500 text-white' : 'bg-[#14161d] text-slate-400 hover:text-white border border-[#232733]'
               }`}
             >
@@ -80,14 +81,14 @@ export default function InvoicesView({ onNavigate, refreshTrigger = 0 }) {
                     {inv.status === 'Pending' && (
                       <button
                         onClick={() => handlePay(inv.id)}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 text-white hover:bg-emerald-400 transition"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 text-white hover:bg-emerald-400 transition cursor-pointer"
                       >
                         Pay Now
                       </button>
                     )}
                     <button
-                      onClick={() => alert(`Downloading PDF for invoice ${inv.id}`)}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition"
+                      onClick={() => setSelectedInvoice(inv)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition cursor-pointer"
                     >
                       PDF
                     </button>
@@ -98,6 +99,82 @@ export default function InvoicesView({ onNavigate, refreshTrigger = 0 }) {
           </table>
         </div>
       </div>
+
+      {/* Invoice PDF Printable Modal */}
+      {selectedInvoice && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#14161d] border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+            <button 
+              onClick={() => setSelectedInvoice(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Printable Invoice Header */}
+            <div className="border-b border-slate-800 pb-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-extrabold text-white">Recur<span className="text-orange-400">OS</span> Tax Invoice</h3>
+                  <p className="text-[11px] text-slate-400">GSTIN: 29AAACA1234A1Z5 | Bangalore, KA</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono font-bold text-orange-400">{selectedInvoice.id}</span>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Date: {selectedInvoice.date}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bill To */}
+            <div className="p-3 bg-[#0d0f12] rounded-xl border border-slate-800 text-xs mb-4">
+              <span className="text-slate-500 text-[10px] uppercase font-bold">Billed To:</span>
+              <p className="font-bold text-white mt-0.5">{selectedInvoice.customer}</p>
+              <p className="text-slate-400">{selectedInvoice.company}</p>
+            </div>
+
+            {/* Breakdown Table */}
+            <div className="space-y-2 text-xs border-b border-slate-800 pb-4 mb-4">
+              <div className="flex justify-between text-slate-300">
+                <span>{selectedInvoice.plan} (Subscription Tier)</span>
+                <span className="font-medium text-white">{selectedInvoice.amount}</span>
+              </div>
+              <div className="flex justify-between text-slate-400 text-[11px]">
+                <span>CGST (9%)</span>
+                <span>₹{Math.round(parseInt(selectedInvoice.tax.replace(/[^\d]/g, '') || 300) / 2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400 text-[11px]">
+                <span>SGST (9%)</span>
+                <span>₹{Math.round(parseInt(selectedInvoice.tax.replace(/[^\d]/g, '') || 300) / 2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-extrabold text-white pt-2 border-t border-slate-800">
+                <span>Total Due</span>
+                <span className="text-emerald-400">{selectedInvoice.total}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
+                Status: {selectedInvoice.status}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-white cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print / Save PDF</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
