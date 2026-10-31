@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RecurOS — Subscription & Billing Management</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-logo">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <span class="brand-name">RecurOS</span>
+          <span class="brand-sub">Brightloop Software</span>
+        </div>
+      </div>
+      <span class="badge badge-accent">Person 3: Billing & Invoicing</span>
+    </div>
+
+    <!-- Time Machine Controller -->
+    <div class="time-machine-bar">
+      <div class="tm-label">
+        <span class="tm-icon">⏱️</span>
+        <span>Simulated Date:</span>
+        <strong id="current-sim-date" class="sim-date-display">2026-10-31</strong>
+      </div>
+      <div class="tm-controls">
+        <button class="btn btn-sm btn-ghost" onclick="advanceTime({days: 1})">+1 Day</button>
+        <button class="btn btn-sm btn-ghost" onclick="advanceTime({days: 7})">+7 Days</button>
+        <button class="btn btn-sm btn-outline-cyan" onclick="advanceTime({months: 1})">+1 Month</button>
+        <button class="btn btn-sm btn-ghost" onclick="resetTime()" title="Reset date">↺ Reset</button>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <button class="btn btn-sm btn-outline" onclick="seedDemoData()">⚡ Re-seed Demo Data</button>
+      <div class="user-pill">
+        <div class="avatar">B</div>
+        <span>Finance Admin</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-container">
+
+    <!-- KPI Metric Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card card-glow-emerald">
+        <div class="kpi-header">
+          <span class="kpi-title">Total Revenue Collected</span>
+          <span class="kpi-icon">💰</span>
+        </div>
+        <div class="kpi-value" id="kpi-revenue">₹0.00</div>
+        <div class="kpi-subtext"><span class="text-emerald">↑ Real-time</span> verified payments</div>
+      </div>
+
+      <div class="kpi-card card-glow-amber">
+        <div class="kpi-header">
+          <span class="kpi-title">Outstanding Receivables</span>
+          <span class="kpi-icon">⏳</span>
+        </div>
+        <div class="kpi-value" id="kpi-due">₹0.00</div>
+        <div class="kpi-subtext" id="kpi-overdue-text">0 overdue invoices</div>
+      </div>
+
+      <div class="kpi-card card-glow-indigo">
+        <div class="kpi-header">
+          <span class="kpi-title">Invoices Issued</span>
+          <span class="kpi-icon">📄</span>
+        </div>
+        <div class="kpi-value" id="kpi-invoices-count">0</div>
+        <div class="kpi-subtext">Total generated with audit proof</div>
+      </div>
+
+      <div class="kpi-card card-glow-purple">
+        <div class="kpi-header">
+          <span class="kpi-title">Active Subscriptions</span>
+          <span class="kpi-icon">🔄</span>
+        </div>
+        <div class="kpi-value" id="kpi-subscriptions-count">0</div>
+        <div class="kpi-subtext">Monthly & Yearly recurring plans</div>
+      </div>
+    </section>
+
+    <!-- SIGNATURE FEATURE: Billing Run with Proof -->
+    <section class="card billing-run-card">
+      <div class="billing-run-header">
+        <div>
+          <div class="section-tag">SIGNATURE FEATURE</div>
+          <h2 class="card-title">Billing Run with Proof & Duplicate Prevention</h2>
+          <p class="card-subtitle">
+            Automated batch billing engine with mathematical proof. Guarantees zero duplicate invoices per cycle.
+          </p>
+        </div>
+        <div class="billing-actions">
+          <button class="btn btn-outline" id="btn-preview-run" onclick="previewBillingRun()">
+            🔍 Preview Billing Run (Dry Run)
+          </button>
+          <button class="btn btn-primary" id="btn-execute-run" onclick="executeBillingRun()">
+            ⚡ Run Billing with Proof
+          </button>
+        </div>
+      </div>
+
+      <!-- Proof Summary Box -->
+      <div id="proof-container" class="proof-container hidden">
+        <div class="proof-stats-banner">
+          <div class="proof-stat-item">
+            <span class="label">Total Examined:</span>
+            <strong id="proof-examined" class="value">0</strong>
+          </div>
+          <div class="proof-stat-item">
+            <span class="label">Invoices Generated:</span>
+            <strong id="proof-generated" class="value text-emerald">0</strong>
+          </div>
+          <div class="proof-stat-item">
+            <span class="label">Subscriptions Skipped:</span>
+            <strong id="proof-skipped" class="value text-amber">0</strong>
+          </div>
+          <div class="proof-stat-item">
+            <span class="label">Total Invoiced:</span>
+            <strong id="proof-amount" class="value text-cyan">₹0.00</strong>
+          </div>
+        </div>
+
+        <!-- Demonstration Hint -->
+        <div class="demo-callout">
+          <span class="demo-badge">DEMO PROOF</span>
+          <span>
+            Click <strong>"Run Billing with Proof"</strong> again for the same date to test idempotency — the engine will block all duplicate invoices and show audit proof!
+          </span>
+        </div>
+
+        <!-- Detailed Proof Table -->
+        <div class="table-responsive proof-table-box">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Subscription</th>
+                <th>Customer</th>
+                <th>Decision Action</th>
+                <th>Invoice Number</th>
+                <th>Amount</th>
+                <th>Audit Proof / Reason</th>
+              </tr>
+            </thead>
+            <tbody id="proof-log-tbody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Invoices Hub Section -->
+    <section class="card invoices-card">
+      <div class="invoices-header">
+        <div>
+          <h2 class="card-title">Invoices & Payment Lifecycle</h2>
+          <p class="card-subtitle">Track invoice statuses, transparent calculations, and record payments.</p>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="all" onclick="filterInvoices('all')">All</button>
+          <button class="tab-btn" data-filter="Confirmed" onclick="filterInvoices('Confirmed')">Confirmed</button>
+          <button class="tab-btn" data-filter="Partially Paid" onclick="filterInvoices('Partially Paid')">Partially Paid</button>
+          <button class="tab-btn" data-filter="Paid" onclick="filterInvoices('Paid')">Paid</button>
+          <button class="tab-btn" data-filter="Draft" onclick="filterInvoices('Draft')">Draft</button>
+        </div>
+      </div>
+
+      <!-- Invoices Table -->
+      <div class="table-responsive">
+        <table class="data-table" id="invoices-table">
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Customer</th>
+              <th>Subscription</th>
+              <th>Period</th>
+              <th>Total Amount</th>
+              <th>Outstanding Due</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="invoices-tbody">
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">No invoices loaded. Run a billing cycle above!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Subscriptions Quick View -->
+    <section class="card subscriptions-card">
+      <div class="card-header-flex">
+        <div>
+          <h2 class="card-title">Customer Subscriptions Registry</h2>
+          <p class="card-subtitle">Brightloop software products, variants, and next scheduled billing dates.</p>
+        </div>
+        <span class="badge badge-indigo" id="subs-due-badge">0 Due for Billing</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Subscription ID</th>
+              <th>Customer</th>
+              <th>Plan</th>
+              <th>Interval</th>
+              <th>Status</th>
+              <th>Next Billing Date</th>
+              <th class="text-right">On-Demand Action</th>
+            </tr>
+          </thead>
+          <tbody id="subscriptions-tbody">
+            <!-- Rendered via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: Explainable Invoice Breakdown -->
+  <div id="breakdown-modal" class="modal-overlay hidden">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="badge badge-emerald">EXPLAINABLE BREAKDOWN</div>
+          <h3 class="modal-title" id="m-inv-title">Invoice Calculation Details</h3>
+        </div>
+        <button class="close-btn" onclick="closeBreakdownModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Invoice Metadata -->
+        <div class="inv-meta-grid">
+          <div>
+            <span class="meta-label">Customer</span>
+            <strong id="m-inv-customer">-</strong>
+          </div>
+          <div>
+            <span class="meta-label">Subscription & Plan</span>
+            <strong id="m-inv-plan">-</strong>
+          </div>
+          <div>
+            <span class="meta-label">Billing Period</span>
+            <strong id="m-inv-period">-</strong>
+          </div>
+          <div>
+            <span class="meta-label">Status</span>
+            <span id="m-inv-status" class="badge badge-emerald">-</span>
+          </div>
+        </div>
+
+        <!-- Line Items Table -->
+        <h4 class="subheading">Purchased Software & Add-on Lines</h4>
+        <table class="data-table mb-4">
+          <thead>
+            <tr>
+              <th>Item / Variant</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Variant Extra</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="m-inv-lines">
+            <!-- Line items -->
+          </tbody>
+        </table>
+
+        <!-- Mathematical Calculation Breakdown (The Wow Factor) -->
+        <h4 class="subheading">Explainable Calculation Formula</h4>
+        <div class="calc-breakdown-box">
+          <div class="calc-row">
+            <span>Base Software Price</span>
+            <span id="m-calc-base" class="font-mono">₹0.00</span>
+          </div>
+          <div class="calc-row">
+            <span>Extra Feature / Variant Add-on</span>
+            <span id="m-calc-variants" class="font-mono text-cyan">+ ₹0.00</span>
+          </div>
+          <div class="calc-divider"></div>
+          <div class="calc-row text-muted">
+            <span>Gross Subtotal</span>
+            <span id="m-calc-gross" class="font-mono">₹0.00</span>
+          </div>
+          <div class="calc-row">
+            <span id="m-calc-discount-label">Discount Applied</span>
+            <span id="m-calc-discount" class="font-mono text-emerald">- ₹0.00</span>
+          </div>
+          <div class="calc-row">
+            <span>Taxable Amount</span>
+            <span id="m-calc-taxable" class="font-mono">₹0.00</span>
+          </div>
+          <div class="calc-row">
+            <span id="m-calc-tax-label">Tax (GST 18%)</span>
+            <span id="m-calc-tax" class="font-mono text-amber">+ ₹0.00</span>
+          </div>
+          <div class="calc-divider bold"></div>
+          <div class="calc-row grand-total">
+            <span>Total Payable Amount</span>
+            <span id="m-calc-total" class="font-mono font-bold text-accent">₹0.00</span>
+          </div>
+          <div class="calc-row text-muted mt-2">
+            <span>Amount Paid</span>
+            <span id="m-calc-paid" class="font-mono text-emerald">₹0.00</span>
+          </div>
+          <div class="calc-row text-muted">
+            <span>Remaining Balance Due</span>
+            <span id="m-calc-due" class="font-mono text-amber">₹0.00</span>
+          </div>
+        </div>
+
+        <!-- Payment History Table -->
+        <div class="mt-4">
+          <h4 class="subheading">Recorded Payments History</h4>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Payment ID</th>
+                <th>Date</th>
+                <th>Method</th>
+                <th>Reference #</th>
+                <th>Amount Paid</th>
+              </tr>
+            </thead>
+            <tbody id="m-inv-payments">
+              <!-- Payments -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeBreakdownModal()">Close</button>
+        <button class="btn btn-primary" id="m-btn-record-payment" onclick="openPaymentFromModal()">Record Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Record Payment -->
+  <div id="payment-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="badge badge-emerald">RECORD PAYMENT</span>
+          <h3 class="modal-title">Record Payment Against Invoice</h3>
+        </div>
+        <button class="close-btn" onclick="closePaymentModal()">&times;</button>
+      </div>
+
+      <form id="payment-form" onsubmit="submitPayment(event)">
+        <div class="modal-body">
+          <div class="info-alert mb-3">
+            <div>
+              <span class="text-muted">Target Invoice:</span> <strong id="p-invoice-num">-</strong>
+            </div>
+            <div>
+              <span class="text-muted">Outstanding Balance Due:</span> <strong id="p-invoice-due" class="text-amber">₹0.00</strong>
+            </div>
+          </div>
+
+          <input type="hidden" id="p-invoice-id">
+
+          <div class="form-group mb-3">
+            <label class="form-label">Payment Amount (₹)</label>
+            <input type="number" step="0.01" min="0.01" id="p-amount" class="form-input" required>
+            <span class="form-hint">You can make a partial or full payment.</span>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label">Payment Method</label>
+            <select id="p-method" class="form-select" required>
+              <option value="UPI / GPay">UPI / Google Pay</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="Bank Transfer">Bank Transfer (NEFT / RTGS)</option>
+              <option value="Net Banking">Net Banking</option>
+              <option value="Cash">Cash</option>
+            </select>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label">Reference / UTR Number</label>
+            <input type="text" id="p-ref" class="form-input" placeholder="e.g. UPI/102948204 or NEFT-839210">
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label">Staff Notes (Optional)</label>
+            <input type="text" id="p-notes" class="form-input" placeholder="e.g. Verified from HDFC bank statement">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closePaymentModal()">Cancel</button>
+          <button type="submit" class="btn btn-emerald">Confirm & Record Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/billing_app.js"></script>
+</body>
+</html>
