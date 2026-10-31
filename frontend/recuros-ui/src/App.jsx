@@ -17,6 +17,22 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Custom plans state synced across Dashboard & Plans
+  const [customPlans, setCustomPlans] = useState([]);
+
+  const handleAddPlan = (newPlan) => {
+    setCustomPlans(prev => [newPlan, ...prev]);
+    const priceNum = parseFloat(String(newPlan.price).replace(/[^\d.]/g, '')) || 999;
+    apiRequest('/catalog/plans', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: newPlan.name,
+        price: priceNum,
+        billing_period: 'monthly'
+      })
+    }).catch(err => console.warn('Plan catalog sync error:', err));
+  };
+
   // Topbar action modals
   const [triggerNewPlanModal, setTriggerNewPlanModal] = useState(false);
   const [triggerNewCustomerModal, setTriggerNewCustomerModal] = useState(false);
@@ -149,13 +165,15 @@ export default function App() {
         )}
 
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-          {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} />}
+          {activeTab === 'dashboard' && <DashboardView onNavigate={setActiveTab} refreshTrigger={refreshTrigger} customPlans={customPlans} />}
           {activeTab === 'plans' && (
             <PlansView 
               onNavigate={setActiveTab} 
               triggerNewPlanModal={triggerNewPlanModal}
               setTriggerNewPlanModal={setTriggerNewPlanModal}
               onToast={showToast}
+              customPlans={customPlans}
+              onAddPlan={handleAddPlan}
             />
           )}
           {activeTab === 'customers' && (

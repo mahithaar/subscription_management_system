@@ -26,11 +26,22 @@ import {
 import { mockDashboardData } from '../data/mockData';
 import { apiRequest } from '../api';
 
-export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
+export default function DashboardView({ onNavigate, refreshTrigger = 0, customPlans = [] }) {
   const [chartTab, setChartTab] = useState('revenue');
   const [liveKpis, setLiveKpis] = useState(null);
   const [liveInvoices, setLiveInvoices] = useState(null);
   const { metrics, revenueTrend, subscriptionStatus, recentInvoices, popularPlans } = mockDashboardData;
+  const displayPopularPlans = [
+    ...(customPlans || []).map(cp => ({
+      name: cp.name,
+      tag: 'New Tier',
+      price: String(cp.price).startsWith('₹') ? cp.price : `₹${cp.price}`,
+      billing: '/month',
+      subscribers: cp.activeSubscribers || 1,
+      growth: 'New'
+    })),
+    ...popularPlans
+  ];
 
   useEffect(() => {
     async function loadData() {
@@ -425,7 +436,7 @@ export default function DashboardView({ onNavigate, refreshTrigger = 0 }) {
           </div>
 
           <div className="space-y-3 mt-4">
-            {popularPlans.map((plan) => (
+            {displayPopularPlans.map((plan) => (
               <div
                 key={plan.name}
                 className="p-3.5 rounded-xl border border-slate-200/70 hover:border-orange-300 hover:shadow-sm transition-all bg-gradient-to-r from-slate-50/60 to-white"

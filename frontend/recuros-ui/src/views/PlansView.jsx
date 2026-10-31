@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Layers, CheckCircle2, Plus, ArrowRight, X } from 'lucide-react';
 import { mockPlans } from '../data/mockData';
 
-export default function PlansView({ onNavigate, triggerNewPlanModal, setTriggerNewPlanModal, onToast }) {
+export default function PlansView({ onNavigate, triggerNewPlanModal, setTriggerNewPlanModal, onToast, customPlans = [], onAddPlan }) {
   const [billingCycle, setBillingCycle] = useState('monthly');
-  const [plans, setPlans] = useState(mockPlans);
+  const plans = [...customPlans, ...mockPlans];
   const [showModal, setShowModal] = useState(false);
   const [newPlanName, setNewPlanName] = useState('');
   const [newPlanPrice, setNewPlanPrice] = useState('');
@@ -37,7 +37,7 @@ export default function PlansView({ onNavigate, triggerNewPlanModal, setTriggerN
         'Standard 24/7 SLA'
       ]
     };
-    setPlans([createdPlan, ...plans]);
+    if (onAddPlan) onAddPlan(createdPlan);
     setShowModal(false);
     setNewPlanName('');
     setNewPlanPrice('');
