@@ -3,7 +3,7 @@ import {
   TrendingUp, 
   Users, 
   CreditCard, 
-  FileAlert, 
+  FileWarning, 
   ArrowUpRight, 
   ArrowDownRight, 
   MoreVertical,
@@ -135,7 +135,7 @@ export default function DashboardView({ onNavigate }) {
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <FileAlert className="w-5 h-5" />
+              <FileWarning className="w-5 h-5" />
             </div>
             <button className="text-slate-400 hover:text-slate-600">
               <MoreVertical className="w-4 h-4" />

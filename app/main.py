@@ -60,13 +60,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 # Mount frontend as interactive web UI
+vite_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "recuros-ui", "dist")
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-if os.path.exists(frontend_path):
+
+if os.path.exists(vite_dist):
+    app.mount("/app", StaticFiles(directory=vite_dist, html=True), name="frontend")
+elif os.path.exists(frontend_path):
     app.mount("/app", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 @app.get("/")
 def root():
-    # Redirect root to interactive frontend app
     return RedirectResponse(url="/app/")
 
 
